@@ -43,6 +43,9 @@
 #include <pcl/filters/filter.h>
 #include <map>
 
+using Vector4index_t = Eigen::Matrix<pcl::index_t, 4, 1>;
+using Vector3index_t = Eigen::Matrix<pcl::index_t, 3, 1>;
+
 namespace pcl
 {
   /** \brief Obtain the maximum and minimum points in 3D from a given point cloud.
@@ -200,7 +203,7 @@ namespace pcl
         min_b_ (Eigen::Vector4i::Zero ()),
         max_b_ (Eigen::Vector4i::Zero ()),
         div_b_ (Eigen::Vector4i::Zero ()),
-        divb_mul_ (Eigen::Vector4i::Zero ()),
+        divb_mul_ (Vector4index_t::Zero ()),
         filter_field_name_ (""),
         filter_limit_min_ (-FLT_MAX),
         filter_limit_max_ (FLT_MAX),
@@ -303,7 +306,7 @@ namespace pcl
       /** \brief Get the multipliers to be applied to the grid coordinates in
         * order to find the centroid index (after filtering is performed).
         */
-      inline Eigen::Vector3i
+      inline Vector3index_t
       getDivisionMultiplier () const { return (divb_mul_.head<3> ()); }
 
       /** \brief Returns the index in the resulting downsampled cloud of the specified point.
@@ -317,9 +320,9 @@ namespace pcl
       inline int
       getCentroidIndex (const PointT &p) const
       {
-        return (leaf_layout_.at ((Eigen::Vector4i (static_cast<int> (std::floor (p.x * inverse_leaf_size_[0])),
-                                                   static_cast<int> (std::floor (p.y * inverse_leaf_size_[1])),
-                                                   static_cast<int> (std::floor (p.z * inverse_leaf_size_[2])), 0) - min_b_).dot (divb_mul_)));
+        return (leaf_layout_.at ((Vector4index_t (static_cast<pcl::index_t> (std::floor (p.x * inverse_leaf_size_[0])),
+                                                  static_cast<pcl::index_t> (std::floor (p.y * inverse_leaf_size_[1])),
+                                                  static_cast<pcl::index_t> (std::floor (p.z * inverse_leaf_size_[2])), 0) - min_b_).dot (divb_mul_)));
       }
 
       /** \brief Returns the indices in the resulting downsampled cloud of the points at the specified grid coordinates,
@@ -342,7 +345,7 @@ namespace pcl
           Eigen::Vector4i displacement = (Eigen::Vector4i() << relative_coordinates.col(ni), 0).finished();
           // checking if the specified cell is in the grid
           if ((diff2min <= displacement.array()).all() && (diff2max >= displacement.array()).all())
-            neighbors[ni] = leaf_layout_[((ijk + displacement - min_b_).dot (divb_mul_))]; // .at() can be omitted
+            neighbors[ni] = leaf_layout_[((ijk.cast<pcl::index_t>() + displacement.cast<pcl::index_t>() - min_b_.cast<pcl::index_t>()).dot (divb_mul_))]; // .at() can be omitted
           else
             neighbors[ni] = -1; // cell is out of bounds, consider it empty
         }
@@ -374,7 +377,7 @@ namespace pcl
       inline int
       getCentroidIndexAt (const Eigen::Vector3i &ijk) const
       {
-        int idx = ((Eigen::Vector4i() << ijk, 0).finished() - min_b_).dot (divb_mul_);
+        pcl::index_t idx = ((Vector4index_t() << ijk.cast<pcl::index_t>(), 0).finished() - min_b_.cast<pcl::index_t>()).dot (divb_mul_);
         if (idx < 0 || idx >= static_cast<int> (leaf_layout_.size ())) // this checks also if leaf_layout_.size () == 0 i.e. everything was computed as needed
         {
           //if (verbose)
@@ -467,8 +470,11 @@ namespace pcl
       /** \brief The leaf layout information for fast access to cells relative to current position **/
       std::vector<int> leaf_layout_;
 
-      /** \brief The minimum and maximum bin coordinates, the number of divisions, and the division multiplier. */
-      Eigen::Vector4i min_b_, max_b_, div_b_, divb_mul_;
+      /** \brief The minimum and maximum bin coordinates, and the number of divisions. */
+      Eigen::Vector4i min_b_, max_b_, div_b_;
+
+      /** \brief The division multiplier. */
+      Vector4index_t divb_mul_;
 
       /** \brief The desired user filter field name. */
       std::string filter_field_name_;
@@ -526,7 +532,7 @@ namespace pcl
         min_b_ (Eigen::Vector4i::Zero ()),
         max_b_ (Eigen::Vector4i::Zero ()),
         div_b_ (Eigen::Vector4i::Zero ()),
-        divb_mul_ (Eigen::Vector4i::Zero ()),
+        divb_mul_ (Vector4index_t::Zero ()),
         filter_field_name_ (""),
         filter_limit_min_ (-FLT_MAX),
         filter_limit_max_ (FLT_MAX),
@@ -629,7 +635,7 @@ namespace pcl
       /** \brief Get the multipliers to be applied to the grid coordinates in
         * order to find the centroid index (after filtering is performed).
         */
-      inline Eigen::Vector3i
+      inline Vector3index_t
       getDivisionMultiplier () const { return (divb_mul_.head<3> ()); }
 
       /** \brief Returns the index in the resulting downsampled cloud of the specified point.
@@ -642,11 +648,11 @@ namespace pcl
       inline int
       getCentroidIndex (float x, float y, float z) const
       {
-        return (leaf_layout_.at ((Eigen::Vector4i (static_cast<int> (std::floor (x * inverse_leaf_size_[0])),
-                                                   static_cast<int> (std::floor (y * inverse_leaf_size_[1])),
-                                                   static_cast<int> (std::floor (z * inverse_leaf_size_[2])),
-                                                   0)
-                - min_b_).dot (divb_mul_)));
+        return (leaf_layout_.at ((Vector4index_t (static_cast<pcl::index_t> (std::floor (x * inverse_leaf_size_[0])),
+                                                  static_cast<pcl::index_t> (std::floor (y * inverse_leaf_size_[1])),
+                                                  static_cast<pcl::index_t> (std::floor (z * inverse_leaf_size_[2])),
+                                                  0)
+                - min_b_.cast<pcl::index_t>()).dot (divb_mul_)));
       }
 
       /** \brief Returns the indices in the resulting downsampled cloud of the points at the specified grid coordinates,
@@ -671,7 +677,7 @@ namespace pcl
           Eigen::Vector4i displacement = (Eigen::Vector4i() << relative_coordinates.col(ni), 0).finished();
           // checking if the specified cell is in the grid
           if ((diff2min <= displacement.array()).all() && (diff2max >= displacement.array()).all())
-            neighbors[ni] = leaf_layout_[((ijk + displacement - min_b_).dot (divb_mul_))]; // .at() can be omitted
+            neighbors[ni] = leaf_layout_[((ijk.cast<pcl::index_t>() + displacement.cast<pcl::index_t>() - min_b_.cast<pcl::index_t>()).dot (divb_mul_))]; // .at() can be omitted
           else
             neighbors[ni] = -1; // cell is out of bounds, consider it empty
         }
@@ -689,11 +695,11 @@ namespace pcl
       inline std::vector<int>
       getNeighborCentroidIndices (float x, float y, float z, const std::vector<Eigen::Vector3i, Eigen::aligned_allocator<Eigen::Vector3i> > &relative_coordinates) const
       {
-        Eigen::Vector4i ijk (static_cast<int> (std::floor (x * inverse_leaf_size_[0])), static_cast<int> (std::floor (y * inverse_leaf_size_[1])), static_cast<int> (std::floor (z * inverse_leaf_size_[2])), 0);
+        Vector4index_t ijk (static_cast<pcl::index_t> (std::floor (x * inverse_leaf_size_[0])), static_cast<pcl::index_t> (std::floor (y * inverse_leaf_size_[1])), static_cast<pcl::index_t> (std::floor (z * inverse_leaf_size_[2])), 0);
         std::vector<int> neighbors;
         neighbors.reserve (relative_coordinates.size ());
         for (const auto &relative_coordinate : relative_coordinates)
-          neighbors.push_back (leaf_layout_[(ijk + (Eigen::Vector4i() << relative_coordinate, 0).finished() - min_b_).dot (divb_mul_)]);
+          neighbors.push_back (leaf_layout_[(ijk + (Vector4index_t() << relative_coordinate.cast<pcl::index_t>(), 0).finished() - min_b_.cast<pcl::index_t>()).dot (divb_mul_)]);
         return (neighbors);
       }
 
@@ -722,7 +728,7 @@ namespace pcl
       inline int
       getCentroidIndexAt (const Eigen::Vector3i &ijk) const
       {
-        int idx = ((Eigen::Vector4i() << ijk, 0).finished() - min_b_).dot (divb_mul_);
+        pcl::index_t idx = ((Vector4index_t() << ijk.cast<pcl::index_t>(), 0).finished() - min_b_.cast<pcl::index_t>()).dot (divb_mul_);
         if (idx < 0 || idx >= static_cast<int> (leaf_layout_.size ())) // this checks also if leaf_layout_.size () == 0 i.e. everything was computed as needed
         {
           //if (verbose)
@@ -820,9 +826,13 @@ namespace pcl
       std::vector<int> leaf_layout_;
 
       /** \brief The minimum and maximum bin coordinates, the number of
-        * divisions, and the division multiplier.
+        * divisions.
         */
-      Eigen::Vector4i min_b_, max_b_, div_b_, divb_mul_;
+      Eigen::Vector4i min_b_, max_b_, div_b_;
+
+      /** \brief The division multiplier.
+        */
+      Vector4index_t divb_mul_;
 
       /** \brief The desired user filter field name. */
       std::string filter_field_name_;

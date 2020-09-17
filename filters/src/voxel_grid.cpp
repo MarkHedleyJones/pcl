@@ -227,7 +227,8 @@ pcl::VoxelGrid<pcl::PCLPointCloud2>::applyFilter (PCLPointCloud2 &output)
   std::int64_t dy = static_cast<std::int64_t>((max_p[1] - min_p[1]) * inverse_leaf_size_[1])+1;
   std::int64_t dz = static_cast<std::int64_t>((max_p[2] - min_p[2]) * inverse_leaf_size_[2])+1;
 
-  if( (dx*dy*dz) > static_cast<std::int64_t>(std::numeric_limits<std::int32_t>::max()) )
+  if ((dx > std::numeric_limits<pcl::index_t>::max() / dy) ||
+      ((dz > std::numeric_limits<pcl::index_t>::max() / (dx * dy))))
   {
     PCL_WARN("[pcl::%s::applyFilter] Leaf size is too small for the input dataset. Integer indices would overflow.", getClassName().c_str());
     //output.width = output.height = 0;
@@ -255,7 +256,7 @@ pcl::VoxelGrid<pcl::PCLPointCloud2>::applyFilter (PCLPointCloud2 &output)
                            input_->fields[y_idx_].offset,
                            input_->fields[z_idx_].offset,
                            0);
-  divb_mul_ = Eigen::Vector4i (1, div_b_[0], div_b_[0] * div_b_[1], 0);
+  divb_mul_ = Vector4index_t (1, div_b_[0], div_b_[0] * div_b_[1], 0);
   Eigen::Vector4f pt  = Eigen::Vector4f::Zero ();
 
   int centroid_size = 4;
@@ -340,8 +341,8 @@ pcl::VoxelGrid<pcl::PCLPointCloud2>::applyFilter (PCLPointCloud2 &output)
       int ijk1 = static_cast<int> (std::floor (pt[1] * inverse_leaf_size_[1]) - min_b_[1]);
       int ijk2 = static_cast<int> (std::floor (pt[2] * inverse_leaf_size_[2]) - min_b_[2]);
       // Compute the centroid leaf index
-      int idx = ijk0 * divb_mul_[0] + ijk1 * divb_mul_[1] + ijk2 * divb_mul_[2];
-      index_vector.emplace_back(idx, static_cast<unsigned int> (cp));
+      pcl::index_t idx = ijk0 * divb_mul_[0] + ijk1 * divb_mul_[1] + ijk2 * divb_mul_[2];
+      index_vector.emplace_back(idx, static_cast<pcl::index_t> (cp));
 
       xyz_offset += input_->point_step;
     }
@@ -370,8 +371,8 @@ pcl::VoxelGrid<pcl::PCLPointCloud2>::applyFilter (PCLPointCloud2 &output)
       int ijk1 = static_cast<int> (std::floor (pt[1] * inverse_leaf_size_[1]) - min_b_[1]);
       int ijk2 = static_cast<int> (std::floor (pt[2] * inverse_leaf_size_[2]) - min_b_[2]);
       // Compute the centroid leaf index
-      int idx = ijk0 * divb_mul_[0] + ijk1 * divb_mul_[1] + ijk2 * divb_mul_[2];
-      index_vector.emplace_back(idx, static_cast<unsigned int> (cp));
+      pcl::index_t idx = ijk0 * divb_mul_[0] + ijk1 * divb_mul_[1] + ijk2 * divb_mul_[2];
+      index_vector.emplace_back(idx, static_cast<pcl::index_t> (cp));
       xyz_offset += input_->point_step;
     }
   }
